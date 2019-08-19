@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018 Tigera, Inc. All rights reserved.
+// Copyright (c) 2017-2019 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type IptablesBackend string
+
 const (
 	KindFelixConfiguration     = "FelixConfiguration"
 	KindFelixConfigurationList = "FelixConfigurationList"
+	IptablesBackendLegacy      = "Legacy"
+	IptablesBackendNFTables    = "NFT"
 )
 
 // +genclient
@@ -79,6 +83,8 @@ type FelixConfigurationSpec struct {
 	// disable iptables refresh. [Default: 90s]
 	IpsetsRefreshInterval *metav1.Duration `json:"ipsetsRefreshInterval,omitempty" configv1timescale:"seconds"`
 	MaxIpsetSize          *int             `json:"maxIpsetSize,omitempty"`
+	// IptablesBackend specifies which backend of iptables will be used. The default is legacy.
+	IptablesBackend *IptablesBackend `json:"iptablesBackend,omitempty" validate:"omitempty,iptablesBackend"`
 
 	// XDPRefreshInterval is the period at which Felix re-checks all XDP state to ensure that no
 	// other process has accidentally broken Calico's BPF maps or attached programs. Set to 0 to
@@ -176,9 +182,11 @@ type FelixConfigurationSpec struct {
 	HealthHost    *string `json:"healthHost,omitempty"`
 	HealthPort    *int    `json:"healthPort,omitempty"`
 
-	// PrometheusMetricsEnabled enables the experimental Prometheus metrics server in Felix if set to true. [Default: false]
+	// PrometheusMetricsEnabled enables the Prometheus metrics server in Felix if set to true. [Default: false]
 	PrometheusMetricsEnabled *bool `json:"prometheusMetricsEnabled,omitempty"`
-	// PrometheusMetricsPort is the TCP port that the experimental Prometheus metrics server should bind to. [Default:9091]
+	// PrometheusMetricsHost is the host that the Prometheus metrics server should bind to. [Default: empty]
+	PrometheusMetricsHost string `json:"prometheusMetricsHost,omitempty" validate:"omitempty,prometheusHost"`
+	// PrometheusMetricsPort is the TCP port that the Prometheus metrics server should bind to. [Default: 9091]
 	PrometheusMetricsPort *int `json:"prometheusMetricsPort,omitempty"`
 	// PrometheusGoMetricsEnabled disables Go runtime metrics collection, which the Prometheus client does by default, when
 	// set to false. This reduces the number of metrics reported, reducing Prometheus load. [Default: true]
@@ -220,6 +228,15 @@ type FelixConfigurationSpec struct {
 	// network stack is used.
 	NATPortRange *numorstring.Port `json:"natPortRange,omitempty"`
 
+	// NATOutgoingAddress specifies an address to use when performing source NAT for traffic in a natOutgoing pool that
+	// is leaving the network. By default the address used is an address on the interface the traffic is leaving on
+	// (ie it uses the iptables MASQUERADE target)
+	NATOutgoingAddress string `json:"natOutgoingAddress,omitempty"`
+
+	// This is the source address to use on programmed device routes. By default the source address is left blank,
+	// leaving the kernel to choose the source address used.
+	DeviceRouteSourceAddress string `json:"deviceRouteSourceAddress,omitempty"`
+
 	// ExternalNodesCIDRList is a list of CIDR's of external-non-calico-nodes which may source tunnel traffic and have
 	// the tunneled traffic be accepted at calico nodes.
 	ExternalNodesCIDRList *[]string `json:"externalNodesList,omitempty"`
@@ -231,8 +248,8 @@ type FelixConfigurationSpec struct {
 
 	IptablesNATOutgoingInterfaceFilter string `json:"iptablesNATOutgoingInterfaceFilter,omitempty" validate:"omitempty,ifaceFilter"`
 
-	// SockmapEnabled enables experimental sockmap acceleration [Default: false]
-	SockmapEnabled *bool `json:"sockmapEnabled,omitempty" confignamev1:"SockmapEnabled"`
+	// SidecarAccelerationEnabled enables experimental sidecar acceleration [Default: false]
+	SidecarAccelerationEnabled *bool `json:"sidecarAccelerationEnabled,omitempty"`
 
 	// XDPEnabled enables XDP acceleration for suitable untracked incoming deny rules. [Default: true]
 	XDPEnabled *bool `json:"xdpEnabled,omitempty" confignamev1:"XDPEnabled"`

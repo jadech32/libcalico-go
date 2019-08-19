@@ -543,6 +543,11 @@ func (in *FelixConfigurationSpec) DeepCopyInto(out *FelixConfigurationSpec) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.IptablesBackend != nil {
+		in, out := &in.IptablesBackend, &out.IptablesBackend
+		*out = new(IptablesBackend)
+		**out = **in
+	}
 	if in.XDPRefreshInterval != nil {
 		in, out := &in.XDPRefreshInterval, &out.XDPRefreshInterval
 		*out = new(v1.Duration)
@@ -724,8 +729,8 @@ func (in *FelixConfigurationSpec) DeepCopyInto(out *FelixConfigurationSpec) {
 		*out = new(v1.Duration)
 		**out = **in
 	}
-	if in.SockmapEnabled != nil {
-		in, out := &in.SockmapEnabled, &out.SockmapEnabled
+	if in.SidecarAccelerationEnabled != nil {
+		in, out := &in.SidecarAccelerationEnabled, &out.SidecarAccelerationEnabled
 		*out = new(bool)
 		**out = **in
 	}
